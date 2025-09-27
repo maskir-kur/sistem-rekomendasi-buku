@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Anda bisa menambahkan CSS kustom Anda di bawah ini */
+body {
+  margin: 0;
+  font-family: sans-serif;
+}
