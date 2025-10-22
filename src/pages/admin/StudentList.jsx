@@ -1,8 +1,7 @@
 // ──────────────────────────────────────────────
-// src/pages/admin/StudentList.jsx
-// Arsip • Restore • Toast  (SIAP TEMPEL)
+// src/pages/admin/StudentList.jsx - VERSI AKHIR DAN KONSISTEN
 // ──────────────────────────────────────────────
-import { useState, useEffect, useMemo } from "react"; // useMemo tetap dipakai untuk hal lain, tapi bukan filter utama
+import { useState, useEffect, useMemo } from "react"; 
 import {
   useQuery,
   useMutation,
@@ -10,11 +9,11 @@ import {
 } from "@tanstack/react-query";
 import api from "../../lib/api";
 import { Dialog } from "@headlessui/react";
-import Swal from "sweetalert2"; // SweetAlert2 untuk konfirmasi arsip
-import { toast } from "react-hot-toast"; // Toaster global di App.jsx
-import { Search, ChevronUp, ChevronDown } from "lucide-react"; // Import ikon Search, dan ikon panah untuk sorting
+import Swal from "sweetalert2"; 
+import { toast } from "react-hot-toast"; 
+import { Search, ChevronUp, ChevronDown } from "lucide-react"; 
 
-const safe = (v) => (v ?? "").toString(); // pastikan selalu string
+const safe = (v) => (v ?? "").toString(); 
 
 /* --------------------------------------------------
     Komponen Halaman Data Siswa
@@ -25,66 +24,58 @@ export default function StudentList() {
   /* state UI */
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState(null);
-  const [q, setQ] = useState(""); // Ini akan menjadi pencarian umum (nama/nisn)
-  const [searchClass, setSearchClass] = useState(""); // State baru untuk pencarian kelas
-  const [showAll, setAll] = useState(false); // tampilkan alumni?
+  const [q, setQ] = useState(""); 
+  const [searchClass, setSearchClass] = useState(""); 
+  // PERUBAHAN NAMA STATE (konsisten): showAll -> showArchivedOnly
+  const [showArchivedOnly, setArchivedOnly] = useState(false); 
 
   // State baru untuk pagination dan sorting
   const [currentPage, setCurrentPage] = useState(1);
-  const [limit, setLimit] = useState(10); // Default items per page
+  const [limit, setLimit] = useState(10); 
   const [totalPages, setTotalPages] = useState(1);
-  const [sortBy, setSortBy] = useState("class"); // Default sort by class
-  const [sortOrder, setSortOrder] = useState("asc"); // Default sort order ascending
+  const [sortBy, setSortBy] = useState("class"); 
+  const [sortOrder, setSortOrder] = useState("asc"); 
 
   /* --- fetch data siswa (aktif / alumni) dengan filter, sort, dan pagination --- */
   const { data: studentsData, isLoading, isError } = useQuery({
-    queryKey: ["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q], // Tambahkan dependensi queryKey
+    // UBAH: Gunakan showArchivedOnly di queryKey
+    queryKey: ["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q], 
     queryFn: () => {
       const params = {
         page: currentPage,
         limit: limit,
-        all: showAll,
+        // Kirim 'all' sebagai true jika ingin melihat arsip. 
+        all: showArchivedOnly, 
         sortBy: sortBy,
         sortOrder: sortOrder,
       };
-      // Tambahkan filter kelas jika ada
+
       if (searchClass) {
         params.searchClass = searchClass;
       }
-      // Tambahkan pencarian umum (NISN/Nama) jika ada. Asumsi backend juga bisa handle ini.
-      // Jika backend tidak bisa handle pencarian 'q' sekaligus 'searchClass',
-      // Anda mungkin perlu memilih salah satu atau menggabungkan logikanya di backend.
-      // Untuk tujuan ini, kita akan mengirim 'q' sebagai 'searchGeneral'.
       if (q) {
         params.searchGeneral = q; 
       }
 
       return api.get("/students", { params }).then((r) => r.data);
     },
-    keepPreviousData: true, // Untuk pengalaman yang lebih mulus saat navigasi halaman
+    keepPreviousData: true, 
     onSuccess: (data) => {
-      // Pastikan data yang diterima memiliki totalCount
+      // Perhitungan total halaman berdasarkan totalCount yang dikirim backend
       if (data && typeof data.totalCount === 'number') {
         setTotalPages(Math.ceil(data.totalCount / limit));
       } else {
-        setTotalPages(1); // Default jika totalCount tidak ada
+        setTotalPages(1); 
       }
     }
   });
 
-  const students = studentsData?.students || []; // Ambil array siswa dari respons
+  const rawStudents = studentsData?.students || []; 
 
-  /* --- filter pencarian di frontend (hanya jika ada kebutuhan spesifik setelah backend filter) --- */
-  // Karena kita memindahkan filter utama ke backend, useMemo ini bisa dihapus
-  // atau disesuaikan jika ada filter tambahan yang *hanya* bisa dilakukan di frontend.
-  // Untuk kasus ini, kita akan mengandalkan backend untuk semua filtering dan sorting.
-  // Jadi, `filtered` sekarang akan merujuk langsung ke `students` yang sudah dari backend.
-  // Jika `q` (pencarian NISN/Nama) juga ditangani backend, `useMemo` ini bisa dihapus total.
-  // Untuk sementara, kita akan anggap `q` dikirim ke backend juga.
-  // const filtered = useMemo(() => {
-  //   // Logika ini sekarang seharusnya ditangani oleh backend
-  //   return students; 
-  // }, [students]);
+  /* --- PENYEDERHANAAN: useMemo hanya perlu mengembalikan data mentah --- */
+  const students = useMemo(() => {
+      return rawStudents;
+  }, [rawStudents]);
 
 
   /* --- tambah / edit siswa --- */
@@ -94,7 +85,7 @@ export default function StudentList() {
         : api.post("/students", body),
 
     onSuccess: (res, vars) => {
-      qc.invalidateQueries(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q]); // Invalidasi untuk memicu refetch dengan filter/sort/pagination yang benar
+      qc.invalidateQueries(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q]); 
       qc.invalidateQueries(["stats"]);
 
       setOpen(false);
@@ -118,11 +109,10 @@ export default function StudentList() {
     mutationFn: (studentToArchive) => api.put(`/students/${studentToArchive.id}/deactivate`),
     onMutate: async (studentToArchive) => {
       const toastId = toast.loading(`Mengarsipkan siswa "${studentToArchive.name}"...`);
-      await qc.cancelQueries(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q]);
-      const previousStudents = qc.getQueryData(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q]);
+      await qc.cancelQueries(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q]);
+      const previousStudents = qc.getQueryData(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q]);
       
-      // Optimistic update hanya untuk siswa yang diubah di halaman saat ini
-      qc.setQueryData(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q], (oldData) => {
+      qc.setQueryData(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q], (oldData) => {
         if (!oldData || !oldData.students) return oldData;
         return {
           ...oldData,
@@ -136,7 +126,7 @@ export default function StudentList() {
       toast.success(`Siswa "${studentToArchive.name}" berhasil diarsipkan!`, { id: context.toastId });
     },
     onError: (err, studentToArchive, context) => {
-      qc.setQueryData(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q], context.previousStudents);
+      qc.setQueryData(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q], context.previousStudents);
       toast.error(err.response?.data?.message || `Gagal mengarsipkan siswa "${studentToArchive.name}".`, { id: context.toastId });
     },
   });
@@ -145,11 +135,10 @@ export default function StudentList() {
     mutationFn: (studentToRestore) => api.put(`/students/${studentToRestore.id}/activate`),
     onMutate: async (studentToRestore) => {
       const toastId = toast.loading(`Mengaktifkan siswa "${studentToRestore.name}" kembali...`);
-      await qc.cancelQueries(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q]);
-      const previousStudents = qc.getQueryData(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q]);
+      await qc.cancelQueries(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q]);
+      const previousStudents = qc.getQueryData(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q]);
 
-      // Optimistic update hanya untuk siswa yang diubah di halaman saat ini
-      qc.setQueryData(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q], (oldData) => {
+      qc.setQueryData(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q], (oldData) => {
         if (!oldData || !oldData.students) return oldData;
         return {
           ...oldData,
@@ -163,7 +152,7 @@ export default function StudentList() {
       toast.success(`Siswa "${studentToRestore.name}" berhasil diaktifkan kembali!`, { id: context.toastId });
     },
     onError: (err, studentToRestore, context) => {
-      qc.setQueryData(["students", showAll, currentPage, limit, searchClass, sortBy, sortOrder, q], context.previousStudents);
+      qc.setQueryData(["students", showArchivedOnly, currentPage, limit, searchClass, sortBy, sortOrder, q], context.previousStudents);
       toast.error(err.response?.data?.message || `Gagal mengaktifkan siswa "${studentToRestore.name}".`, { id: context.toastId });
     },
   });
@@ -175,22 +164,22 @@ export default function StudentList() {
     }
   };
 
-  // Handler untuk mengubah limit items per page
+  // Handler untuk limit items per page
   const handleLimitChange = (e) => {
     setLimit(parseInt(e.target.value));
-    setCurrentPage(1); // Reset ke halaman 1 saat limit berubah
+    setCurrentPage(1); 
   };
 
   // Handler untuk pencarian kelas
   const handleSearchClassChange = (e) => {
     setSearchClass(e.target.value);
-    setCurrentPage(1); // Reset ke halaman 1 saat filter berubah
+    setCurrentPage(1); 
   };
   
   // Handler untuk pencarian umum (NISN/Nama)
   const handleGeneralSearchChange = (e) => {
     setQ(e.target.value);
-    setCurrentPage(1); // Reset ke halaman 1 saat filter berubah
+    setCurrentPage(1); 
   };
 
   // Handler untuk sorting
@@ -199,9 +188,9 @@ export default function StudentList() {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       setSortBy(column);
-      setSortOrder("asc"); // Default ke asc saat mengganti kolom sort
+      setSortOrder("asc"); 
     }
-    setCurrentPage(1); // Reset ke halaman 1 saat sorting berubah
+    setCurrentPage(1); 
   };
 
   /* -------------------------------------------------- */
@@ -217,7 +206,7 @@ export default function StudentList() {
           <input
             placeholder="Cari NISN / Nama…"
             value={q}
-            onChange={handleGeneralSearchChange} // Gunakan handler baru
+            onChange={handleGeneralSearchChange} 
             className="
               w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500
               focus:border-blue-500 transition-colors duration-200
@@ -231,7 +220,7 @@ export default function StudentList() {
             <input
                 placeholder="Cari Kelas (contoh: 7A)"
                 value={searchClass}
-                onChange={handleSearchClassChange} // Gunakan handler baru
+                onChange={handleSearchClassChange} 
                 className="
                     w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500
                     focus:border-blue-500 transition-colors duration-200
@@ -239,20 +228,21 @@ export default function StudentList() {
             />
         </div>
 
+        {/* Checkbox Tampilkan Alumni (Diarsip Saja) */}
         <label className="flex items-center gap-2 ml-auto text-gray-700 font-medium">
           <input
             type="checkbox"
-            checked={showAll}
+            checked={showArchivedOnly} 
             onChange={(e) => {
-                setAll(e.target.checked);
-                setCurrentPage(1); // Reset halaman ke 1 saat mengganti filter alumni
+                setArchivedOnly(e.target.checked); 
+                setCurrentPage(1); 
             }}
             className="
               form-checkbox h-5 w-5 text-blue-600 rounded
               focus:ring-blue-500 focus:ring-offset-2
             "
           />
-          <span>Tampilkan alumni</span>
+          <span>Tampilkan Alumni</span> 
         </label>
         
         {/* Dropdown Items per page */}
@@ -347,6 +337,7 @@ export default function StudentList() {
                 </td>
               </tr>
             ) : (
+              // Gunakan array 'students' yang sudah difilter
               students.map((s) => (
                 <tr key={s.id} className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">{s.nisn}</td>

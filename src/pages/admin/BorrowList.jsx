@@ -330,8 +330,10 @@ export default function BorrowList() {
 
   /* Ambil data buku */
   const { data: books = [] } = useQuery({
-    queryKey: ["books"],
-    queryFn: () => api.get("/books").then((r) => r.data),
+    queryKey: ["books"],
+    queryFn: () => api.get("/books").then((r) => r.data),
+    // BARIS BARU UNTUK MEMPERBAIKI ERROR
+    select: (response) => response.data, 
   });
 
   /* hasil terurut */

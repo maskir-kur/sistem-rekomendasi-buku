@@ -58,7 +58,11 @@ router.get("/", auth, async (req, res) => {
         let queryParams = [];
 
         // 1. Tambahkan filter status aktif/non-aktif
-        if (!parsedShowAll) {
+        // Jika parsedShowAll=true, berarti kita ingin yang DIARSIP (active=0)
+        if (parsedShowAll) {
+            whereClauses.push("active = 0");
+        } else {
+            // Jika parsedShowAll=false (default), berarti kita ingin yang AKTIF (active=1)
             whereClauses.push("active = 1");
         }
 
@@ -167,14 +171,20 @@ router.post("/", auth, async (req, res) => {
  */
 router.put("/:id", auth, async (req, res) => {
     const { id } = req.params;
-    const { name, class: studentClass, password, active } = req.body;
+    // PERBAIKAN: Ambil NISN dari body
+    const { nisn, name, class: studentClass, password, active } = req.body; 
 
-    if (!name || !studentClass) {
-        return res.status(400).json({ message: "Nama dan kelas wajib diisi." });
+    // PERBAIKAN: Pastikan NISN, Name, dan Class ada di body
+    if (!nisn || !name || !studentClass) { 
+        return res.status(400).json({ message: "NISN, Nama, dan kelas wajib diisi." });
     }
 
     const updates = {};
     const params = [];
+
+    // PERBAIKAN KRUSIAL: Tambahkan NISN ke updates
+    updates.nisn = nisn; 
+    params.push(nisn);
 
     updates.name = name;
     params.push(name);
@@ -198,12 +208,29 @@ router.put("/:id", auth, async (req, res) => {
 
     const conn = await pool.getConnection();
     try {
+        // Cek duplikasi NISN BARU, tapi abaikan ID siswa yang sedang diedit
+        const [[existing]] = await conn.query(
+             "SELECT id FROM students WHERE nisn = ? AND id != ?", 
+             [nisn, id]
+        );
+        if (existing) {
+             return res.status(409).json({ message: "NISN baru sudah terdaftar pada siswa lain." });
+        }
+        
         const [result] = await conn.query(
             `UPDATE students SET ${setClauses} WHERE id = ?`,
             params
         );
+        
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Siswa tidak ditemukan." });
+            // Ini bisa terjadi jika data tidak berubah (nisn lama = nisn baru)
+            // Atau ID tidak ditemukan
+            // Kita anggap berhasil jika ID ditemukan (untuk menghindari error
+            // saat admin hanya mengklik simpan tanpa mengubah data)
+            const [[student]] = await conn.query("SELECT id FROM students WHERE id = ?", [id]);
+            if (!student) {
+                 return res.status(404).json({ message: "Siswa tidak ditemukan." });
+            }
         }
         res.json({ message: "Data siswa berhasil diperbarui." });
     } catch (error) {

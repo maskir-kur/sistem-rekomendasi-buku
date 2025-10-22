@@ -12,7 +12,7 @@ const StudentSidebar = () => {
   const inactiveClasses = "text-gray-600 hover:bg-gray-200";
 
   return (
-    <div className="w-64 h-screen bg-white shadow-lg p-6 flex flex-col justify-between">
+   <div className="fixed top-0 left-0 w-64 h-screen bg-white shadow-lg p-6 flex flex-col justify-between z-10">
       <div>
         {/* Logo dan Teks Aplikasi yang Disempurnakan */}
         <div className="text-2xl font-bold text-blue-600 border-b-2 border-gray-200 pb-4 mb-8">
@@ -55,7 +55,7 @@ const StudentSidebar = () => {
       </div>
 
       {/* Tombol Logout yang Disempurnakan */}
-      <div className="mt-8">
+        <div className="mt-8">
         <button
           onClick={logout}
           className="w-full flex items-center space-x-3 p-3 rounded-lg text-red-500 hover:bg-red-100 transition-colors duration-200"

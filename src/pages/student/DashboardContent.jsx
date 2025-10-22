@@ -91,9 +91,9 @@ const DashboardContent = () => {
     const unreturnedBooks = data.borrowed.filter(book => !book.return_date);
 
     return (
-        <div>
-            {/* Tambahkan kembali elemen teks Selamat Datang di sini */}
-            <header className="flex justify-between items-center mb-8">
+        <div className="p-8"> 
+            {/* Tambahkan kembali elemen teks Selamat Datang di sini */}
+            <header className="flex justify-between items-center mb-8">
                 <div className="flex items-center space-x-4">
                     <FaUserCircle className="text-5xl text-gray-700" />
                     <div>

@@ -7,17 +7,64 @@ import auth from "../middleware/auth.js"; // middleware JWT
 
 const router = express.Router();
 
-/* ╔════════════════════════════════════════════╗
-   ║   GET /api/books – ambil semua buku         ║
-   ╚════════════════════════════════════════════╝ */
+/* ╔════════════════════════════════════════════════════════════════╗
+   ║   GET /api/books – ambil semua buku (mendukung Query & Paginasi) ║
+   ╚════════════════════════════════════════════════════════════════╝ */
 router.get("/", auth, async (req, res) => {
-  try {
-    const [rows] = await pool.query("SELECT * FROM books");
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Gagal mengambil data buku" });
-  }
+  try {
+    // Ambil parameter query: title (pencarian), page, limit
+    const { title, page, limit } = req.query;
+
+    // Pengaturan Paginasi
+    const defaultLimit = 10;
+    const selectedLimit = parseInt(limit, 10) || defaultLimit;
+    const selectedPage = parseInt(page, 10) || 1;
+    const offset = (selectedPage - 1) * selectedLimit;
+
+    // Membangun Query SQL
+    let sql = "SELECT * FROM books";
+    let countSql = "SELECT COUNT(*) AS total FROM books";
+    const params = [];
+    const countParams = [];
+
+    // Menambahkan kondisi WHERE untuk pencarian jika 'title' ada
+    if (title) {
+      // Tambahkan kondisi WHERE dengan LIKE untuk mencari nama buku
+      const searchTitle = `%${title}%`;
+      sql += " WHERE title LIKE ?";
+      countSql += " WHERE title LIKE ?";
+      params.push(searchTitle);
+      countParams.push(searchTitle);
+    }
+
+    // Menambahkan limit dan offset untuk paginasi
+    sql += " LIMIT ? OFFSET ?";
+    params.push(selectedLimit, offset);
+
+    // 1. Ambil data buku yang sudah dipaginasi/difilter
+    const [rows] = await pool.query(sql, params);
+
+    // 2. Ambil total data untuk paginasi
+    const [countResult] = await pool.query(countSql, countParams);
+    const totalItems = countResult[0].total;
+    const totalPages = Math.ceil(totalItems / selectedLimit);
+
+    // Kirim data beserta informasi paginasi
+    res.json({
+      data: rows,
+      pagination: {
+        totalItems: totalItems,
+        totalPages: totalPages,
+        currentPage: selectedPage,
+        pageSize: selectedLimit,
+        hasNextPage: selectedPage < totalPages,
+        hasPreviousPage: selectedPage > 1,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Gagal mengambil data buku" });
+  }
 });
 
 /* ╔════════════════════════════════════════════╗
