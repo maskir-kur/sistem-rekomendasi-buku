@@ -2,7 +2,6 @@ import serverless from "serverless-http";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import cors from "cors";
 import authRoutes from "./routes/auth.js";
 import booksRoutes from "./routes/books.js";
 import studentRoutes from "./routes/students.js";
