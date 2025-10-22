@@ -32,4 +32,4 @@ app.get("/", (req, res) => {
 });
 
 // 🟩 Perhatikan baris ini:
-export default serverless(app);
+export default app;
