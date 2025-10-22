@@ -14,7 +14,7 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-  origin: "https://sistem-rekomendasi-buku.vercel.app", // ganti dengan URL frontend kamu
+  origin: "https://sistem-rekomendasi-buku.vercel.app",
   credentials: true
 }));
 
@@ -27,9 +27,9 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/borrows", borrowRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 
-// default route
 app.get("/", (req, res) => {
   res.send("Backend API running on Vercel");
 });
 
-export const handler = serverless(app);
+// 🟩 Perhatikan baris ini:
+export default serverless(app);
