@@ -11,20 +11,33 @@ import recommendationRoutes from "./routes/recommendations.js";
 
 const app = express();
 
-/* ====== CORS WAJIB DI PALING ATAS ====== */
+/* =================================================
+   1️⃣ CORS HARUS PALING ATAS (SEBELUM APAPUN)
+   ================================================= */
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://sistem-rekomendasi-buku-production.up.railway.app"
-  ],
+  origin: "http://localhost:5173",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-/* ====== PARSER ====== */
+/* =================================================
+   2️⃣ HANDLE PREFLIGHT GLOBAL (WAJIB)
+   ================================================= */
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+/* =================================================
+   3️⃣ BODY PARSER
+   ================================================= */
 app.use(express.json());
 
-/* ====== ROUTES ====== */
+/* =================================================
+   4️⃣ ROUTES (SETELAH CORS)
+   ================================================= */
 app.use("/api", authRoutes);
 app.use("/api/books", booksRoutes);
 app.use("/api/students", studentRoutes);
@@ -32,12 +45,16 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/borrows", borrowRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 
-/* ====== ROOT (SUPAYA TIDAK Cannot GET /) ====== */
+/* =================================================
+   5️⃣ ROOT
+   ================================================= */
 app.get("/", (req, res) => {
-  res.send("Backend API is running 🚀");
+  res.send("Backend API running 🚀");
 });
 
-/* ====== PORT WAJIB ENV ====== */
+/* =================================================
+   6️⃣ PORT
+   ================================================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server ready on port ${PORT}`);
