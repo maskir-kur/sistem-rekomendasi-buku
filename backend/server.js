@@ -1,4 +1,3 @@
-// backend/server.js
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.js";
@@ -10,20 +9,23 @@ import recommendationRoutes from "./routes/recommendations.js";
 
 const app = express();
 
-/* ===============================
-   ✅ CORS CONFIG (STABLE)
-================================ */
+/* ===== CORS (FINAL FIX) ===== */
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(express.json());
 
-/* ===============================
-   ROUTES
-================================ */
+/* ===== ROUTES ===== */
 app.use("/api", authRoutes);
 app.use("/api/books", booksRoutes);
 app.use("/api/students", studentRoutes);
@@ -31,11 +33,8 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/borrows", borrowRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 
-/* ===============================
-   SERVER
-================================ */
+/* ===== SERVER ===== */
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server ready on port ${PORT}`);
 });
