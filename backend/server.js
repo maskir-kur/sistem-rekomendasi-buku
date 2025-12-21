@@ -14,13 +14,9 @@ const app = express();
    ✅ CORS CONFIG (STABLE)
 ================================ */
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://sistem-rekomendasi-buku-production.up.railway.app"
-  ],
+  origin: "http://localhost:5173",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 app.use(express.json());
