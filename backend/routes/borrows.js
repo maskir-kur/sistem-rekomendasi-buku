@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// backend/routes/borrows.js (FINAL)
+// backend/routes/borrows.js (FIXED - Final)
 // ──────────────────────────────────────────────
 import express from "express";
 import pool from "../db.js";
@@ -47,11 +47,19 @@ router.get("/", auth, async (req, res) => {
       queryParams.push(`%${searchGeneral}%`, `%${searchGeneral}%`, `%${searchGeneral}%`);
     }
 
+    // ✅ SOLUSI FINAL: Gunakan alias yang BERBEDA untuk setiap ID
     let sql = `
       SELECT
-        b.id, b.borrow_date, b.due_date, b.return_date,
-        s.id AS student_id, s.nisn, s.name,
-        bk.id AS book_id, bk.title, bk.author
+        b.id AS borrow_id,
+        b.borrow_date, 
+        b.due_date, 
+        b.return_date,
+        s.id AS student_id, 
+        s.nisn, 
+        s.name,
+        bk.id AS book_id, 
+        bk.title, 
+        bk.author
       FROM borrows b
       JOIN students s ON b.student_id = s.id
       JOIN books bk ON b.book_id = bk.id
@@ -92,8 +100,15 @@ router.get("/", auth, async (req, res) => {
     const [borrowsRows] = await pool.query(sql.trim(), queryParams);
     const [countRows] = await pool.query(countSql.trim(), queryParams.slice(0, queryParams.length - 2));
 
+    // ✅ TEMPORARY FIX: Filter out rows dengan id = 0 (data rusak)
+    const validBorrows = borrowsRows.filter(row => row.borrow_id && row.borrow_id !== 0);
+    
+    if (validBorrows.length < borrowsRows.length) {
+      console.warn(`⚠️ Found ${borrowsRows.length - validBorrows.length} borrows with invalid ID (0)`);
+    }
+
     res.json({
-      borrows: borrowsRows,
+      borrows: validBorrows,
       totalCount: countRows[0].totalCount,
     });
   } catch (e) {
@@ -103,20 +118,24 @@ router.get("/", auth, async (req, res) => {
 });
 
 /* ╔══════════════════════════════════════════════╗
-   ║ GET /api/borrows/for-student/:id - Dipinjam  ║
+   ║ GET /api/borrows/for-student/:id - Dipinjam  ║
    ╚══════════════════════════════════════════════╝ */
 router.get("/for-student/:studentId", auth, async (req, res) => {
   try {
     const { studentId } = req.params;
-    // Pastikan siswa yang login hanya bisa melihat data mereka sendiri
     if (req.user.role === 'student' && req.user.id !== parseInt(studentId)) {
         return res.status(403).json({ message: "Akses ditolak." });
     }
 
     const [rows] = await pool.query(`
       SELECT
-        b.id AS borrow_id, b.borrow_date, b.due_date,
-        bk.id, bk.title, bk.author, bk.cover_image_url
+        b.id AS borrow_id, 
+        b.borrow_date, 
+        b.due_date,
+        bk.id, 
+        bk.title, 
+        bk.author, 
+        bk.cover_image_url
       FROM borrows b
       JOIN books bk ON b.book_id = bk.id
       WHERE b.student_id = ? AND b.return_date IS NULL
@@ -136,14 +155,18 @@ router.get("/for-student/:studentId", auth, async (req, res) => {
 router.get("/returned/for-student/:studentId", auth, async (req, res) => {
   try {
     const { studentId } = req.params;
-    // Pastikan siswa yang login hanya bisa melihat data mereka sendiri
     if (req.user.role === 'student' && req.user.id !== parseInt(studentId)) {
       return res.status(403).json({ message: "Akses ditolak." });
     }
     const [rows] = await pool.query(`
       SELECT
-        b.id AS borrow_id, b.borrow_date, b.return_date,
-        bk.id, bk.title, bk.author, bk.cover_image_url
+        b.id AS borrow_id, 
+        b.borrow_date, 
+        b.return_date,
+        bk.id, 
+        bk.title, 
+        bk.author, 
+        bk.cover_image_url
       FROM borrows b
       JOIN books bk ON b.book_id = bk.id
       WHERE b.student_id = ? AND b.return_date IS NOT NULL
@@ -158,7 +181,7 @@ router.get("/returned/for-student/:studentId", auth, async (req, res) => {
 });
 
 /* ╔════════════════════════════════════════════╗
-   ║ POST /api/borrows – catat peminjaman baru  ║
+   ║ POST /api/borrows – catat peminjaman baru  ║
    ╚════════════════════════════════════════════╝ */
 router.post("/", auth, async (req, res) => {
   const { student_id, book_id, due_date } = req.body;
@@ -186,9 +209,17 @@ router.post("/", auth, async (req, res) => {
     }
 
     const [result] = await conn.query(
-      "INSERT INTO borrows (student_id, book_id, borrow_date, due_date) VALUES (?, ?, CURDATE(), ?)",
+      "INSERT INTO borrows (student_id, book_id, due_date) VALUES (?, ?, ?)",
       [student_id, book_id, due_date]
     );
+
+    // ✅ Verifikasi ID yang di-generate
+    console.log("New borrow ID:", result.insertId);
+    
+    if (!result.insertId || result.insertId === 0) {
+      await conn.rollback();
+      return res.status(500).json({ message: "Gagal generate ID peminjaman. Periksa auto-increment di table borrows." });
+    }
 
     await conn.query("UPDATE books SET stock = stock - 1 WHERE id = ?", [book_id]);
 
@@ -209,6 +240,11 @@ router.post("/", auth, async (req, res) => {
 router.put("/:id/return", auth, async (req, res) => {
   const { id } = req.params;
 
+  // ✅ Validasi ID
+  if (!id || id === '0' || isNaN(parseInt(id))) {
+    return res.status(400).json({ message: "ID peminjaman tidak valid." });
+  }
+
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -223,7 +259,7 @@ router.put("/:id/return", auth, async (req, res) => {
       return res.status(400).json({ message: "Buku sudah dikembalikan." });
     }
 
-    const [result] = await conn.query("UPDATE borrows SET return_date = CURDATE() WHERE id = ?", [id]);
+    await conn.query("UPDATE borrows SET return_date = CURDATE() WHERE id = ?", [id]);
     await conn.query("UPDATE books SET stock = stock + 1 WHERE id = ?", [borrow.book_id]);
 
     await conn.commit();
