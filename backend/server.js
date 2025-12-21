@@ -15,20 +15,11 @@ const app = express();
    1️⃣ CORS HARUS PALING ATAS (SEBELUM APAPUN)
    ================================================= */
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-/* =================================================
-   2️⃣ HANDLE PREFLIGHT GLOBAL (WAJIB)
-   ================================================= */
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-  next();
-});
 
 /* =================================================
    3️⃣ BODY PARSER
