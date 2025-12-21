@@ -1,7 +1,5 @@
-// backend/server.js
 import express from "express";
 import cors from "cors";
-
 import authRoutes from "./routes/auth.js";
 import booksRoutes from "./routes/books.js";
 import studentRoutes from "./routes/students.js";
@@ -11,24 +9,32 @@ import recommendationRoutes from "./routes/recommendations.js";
 
 const app = express();
 
-/* =================================================
-   1️⃣ CORS HARUS PALING ATAS (SEBELUM APAPUN)
-   ================================================= */
+/**
+ * CORS FINAL (AMAN & BENAR)
+ */
 app.use(cors({
-  origin: "*",
+  origin: [
+    "http://localhost:5173",
+    "https://sistem-rekomendasi-buku-production-44ab.up.railway.app"
+  ],
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-
-/* =================================================
-   3️⃣ BODY PARSER
-   ================================================= */
+app.options("*", cors());
 app.use(express.json());
 
-/* =================================================
-   4️⃣ ROUTES (SETELAH CORS)
-   ================================================= */
+/**
+ * ROOT CHECK (PENTING)
+ */
+app.get("/", (req, res) => {
+  res.status(200).send("Backend API running 🚀");
+});
+
+/**
+ * API ROUTES
+ */
 app.use("/api", authRoutes);
 app.use("/api/books", booksRoutes);
 app.use("/api/students", studentRoutes);
@@ -36,17 +42,10 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/borrows", borrowRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 
-/* =================================================
-   5️⃣ ROOT
-   ================================================= */
-app.get("/", (req, res) => {
-  res.send("Backend API running 🚀");
-});
-
-/* =================================================
-   6️⃣ PORT
-   ================================================= */
-const PORT = process.env.PORT || 5000;
+/**
+ * PORT
+ */
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server ready on port ${PORT}`);
 });
