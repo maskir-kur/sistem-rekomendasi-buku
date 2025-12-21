@@ -11,11 +11,11 @@ import recommendationRoutes from "./routes/recommendations.js";
 const app = express();
 
 /* ===============================
-   ✅ CORS CONFIG (WAJIB)
+   ✅ CORS CONFIG (FIXED)
 ================================ */
 app.use(cors({
   origin: [
-    "http://localhost:5173", // frontend lokal
+    "http://localhost:5173",
     "https://sistem-rekomendasi-buku-production.up.railway.app"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -23,8 +23,8 @@ app.use(cors({
   credentials: true
 }));
 
-// ⬇️ penting untuk preflight (OPTIONS)
-app.options("*", cors());
+// ✅ FIX path-to-regexp error
+app.options("/*", cors());
 
 app.use(express.json());
 
