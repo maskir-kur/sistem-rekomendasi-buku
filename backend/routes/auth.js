@@ -1,3 +1,4 @@
+// backend/routes/auth.js
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -5,12 +6,17 @@ import pool from "../db.js";
 
 const router = express.Router();
 
-/* ===== PREFLIGHT (FIX path-to-regexp ERROR) ===== */
-router.options("/*", (req, res) => {
-  res.sendStatus(204);
+/* =================================================
+   ✅ HANDLE PREFLIGHT DENGAN CARA AMAN
+   ================================================= */
+router.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
 });
 
-/* ===== LOGIN ===== */
+/* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   const { identifier, password } = req.body;
   let user = null;
@@ -32,7 +38,6 @@ router.post("/login", async (req, res) => {
         "SELECT id, username, password_hash FROM admin WHERE username = ? LIMIT 1",
         [identifier]
       );
-
       if (adminRows.length > 0) {
         user = adminRows[0];
         role = "admin";
