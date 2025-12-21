@@ -11,7 +11,7 @@ import recommendationRoutes from "./routes/recommendations.js";
 const app = express();
 
 /* ===============================
-   ✅ CORS CONFIG (FIXED)
+   ✅ CORS CONFIG (STABLE)
 ================================ */
 app.use(cors({
   origin: [
@@ -22,9 +22,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
-
-// ✅ FIX path-to-regexp error
-app.options("/*", cors());
 
 app.use(express.json());
 
