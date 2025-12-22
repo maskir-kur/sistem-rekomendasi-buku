@@ -1,3 +1,4 @@
+// server.js / app.js
 import express from "express";
 import cors from "cors";
 
@@ -11,82 +12,83 @@ import recommendationRoutes from "./routes/recommendations.js";
 const app = express();
 
 /**
- * ✅ CORS - ALLOW ALL (untuk development)
- * GANTI ini dengan whitelist specific origins saat production
+ * =====================================
+ * ✅ CORS CONFIG (WAJIB PALING ATAS)
+ * =====================================
+ */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  "https://sistem-rekomendasi-buku-production.up.railway.app"
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Izinkan request tanpa Origin (Postman, curl)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("CORS not allowed"));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// WAJIB untuk preflight request
+app.options("*", cors());
+
+/**
+ * =====================================
+ * BODY PARSER
+ * =====================================
+ */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/**
+ * =====================================
+ * LOGGING (DEBUG)
+ * =====================================
  */
 app.use((req, res, next) => {
-  // ALLOW ALL origins (untuk testing)
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Max-Age', '86400'); // Cache preflight 24 jam
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
 });
 
 /**
- * Body Parser
- */
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-/**
- * Request logging
- */
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-});
-
-/**
+ * =====================================
  * ROOT ROUTE
+ * =====================================
  */
 app.get("/", (req, res) => {
-  res.json({ 
+  res.json({
     message: "Backend API running 🚀",
-    version: "1.0.0",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    endpoints: {
-      auth: "/api/auth/login",
-      books: "/api/books",
-      students: "/api/students",
-      stats: "/api/stats",
-      borrows: "/api/borrows",
-      recommendations: "/api/recommendations"
-    }
-  });
-});
-
-/**
- * Health check
- */
-app.get("/health", (req, res) => {
-  res.json({ 
-    status: "healthy", 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
-
-/**
- * Test endpoint untuk cek CORS
- */
-app.get("/api/test", (req, res) => {
-  res.json({ 
-    message: "CORS is working!",
-    origin: req.headers.origin,
+    env: process.env.NODE_ENV || "development",
     timestamp: new Date().toISOString()
   });
 });
 
 /**
+ * =====================================
+ * HEALTH CHECK
+ * =====================================
+ */
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * =====================================
  * API ROUTES
+ * =====================================
  */
 app.use("/api/auth", authRoutes);
 app.use("/api/books", booksRoutes);
@@ -96,59 +98,44 @@ app.use("/api/borrows", borrowRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 
 /**
- * 404 Handler
+ * =====================================
+ * 404 HANDLER
+ * =====================================
  */
 app.use((req, res) => {
-  console.log(`❌ 404: ${req.method} ${req.path}`);
-  res.status(404).json({ 
+  res.status(404).json({
     error: "Not Found",
-    message: `Endpoint ${req.method} ${req.path} not found`,
-    timestamp: new Date().toISOString(),
-    availableEndpoints: [
-      "GET /",
-      "GET /health",
-      "GET /api/test",
-      "POST /api/auth/login",
-      "GET /api/books",
-      "GET /api/students",
-      "GET /api/stats",
-      "GET /api/borrows",
-      "GET /api/recommendations"
-    ]
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
 });
 
 /**
- * Error Handler
+ * =====================================
+ * GLOBAL ERROR HANDLER
+ * =====================================
  */
 app.use((err, req, res, next) => {
-  console.error('❌ Server Error:', err);
-  
-  res.status(err.status || 500).json({ 
+  console.error("❌ ERROR:", err.message);
+
+  res.status(500).json({
     error: "Internal Server Error",
     message: err.message,
-    timestamp: new Date().toISOString(),
-    ...(process.env.NODE_ENV === 'development' && { 
-      stack: err.stack,
-      details: err 
-    })
+    timestamp: new Date().toISOString()
   });
 });
 
 /**
- * START SERVER
+ * =====================================
+ * START SERVER (RAILWAY FRIENDLY)
+ * =====================================
  */
 const PORT = process.env.PORT || 8080;
-const HOST = '0.0.0.0';
 
-app.listen(PORT, HOST, () => {
-  console.log('=================================');
-  console.log(`✅ Server started successfully`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📡 Listening on: http://${HOST}:${PORT}`);
-  console.log(`🔗 API Base: /api`);
-  console.log('=================================');
-}).on('error', (err) => {
-  console.error('❌ Failed to start server:', err);
-  process.exit(1);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("=================================");
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log("=================================");
 });
