@@ -11,30 +11,17 @@ import recommendationRoutes from "./routes/recommendations.js";
 const app = express();
 
 /**
- * ✅ CORS HARUS PERTAMA SEBELUM SEMUA MIDDLEWARE
+ * ✅ CORS - ALLOW ALL (untuk development)
+ * GANTI ini dengan whitelist specific origins saat production
  */
-// Daftar origin yang diizinkan
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:3000",
-  "https://sistem-rekomendasi-buku-production-44ab.up.railway.app"
-];
-
-// CORS middleware - SIMPLE dan PASTI WORK
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Jika origin ada di whitelist atau tidak ada origin (Postman/curl)
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-  }
-  
+  // ALLOW ALL origins (untuk testing)
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Max-Age', '86400'); // Cache preflight 24 jam
   
-  // Handle preflight OPTIONS request
+  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -43,16 +30,16 @@ app.use((req, res, next) => {
 });
 
 /**
- * Body Parser - SETELAH CORS
+ * Body Parser
  */
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /**
- * Logging middleware (opsional, untuk debugging)
+ * Request logging
  */
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
 
@@ -64,6 +51,7 @@ app.get("/", (req, res) => {
     message: "Backend API running 🚀",
     version: "1.0.0",
     timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
     endpoints: {
       auth: "/api/auth/login",
       books: "/api/books",
@@ -76,10 +64,25 @@ app.get("/", (req, res) => {
 });
 
 /**
- * Health check endpoint
+ * Health check
  */
 app.get("/health", (req, res) => {
-  res.json({ status: "OK", timestamp: new Date().toISOString() });
+  res.json({ 
+    status: "healthy", 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+/**
+ * Test endpoint untuk cek CORS
+ */
+app.get("/api/test", (req, res) => {
+  res.json({ 
+    message: "CORS is working!",
+    origin: req.headers.origin,
+    timestamp: new Date().toISOString()
+  });
 });
 
 /**
@@ -96,23 +99,39 @@ app.use("/api/recommendations", recommendationRoutes);
  * 404 Handler
  */
 app.use((req, res) => {
+  console.log(`❌ 404: ${req.method} ${req.path}`);
   res.status(404).json({ 
     error: "Not Found",
-    message: `Cannot ${req.method} ${req.path}`,
-    timestamp: new Date().toISOString()
+    message: `Endpoint ${req.method} ${req.path} not found`,
+    timestamp: new Date().toISOString(),
+    availableEndpoints: [
+      "GET /",
+      "GET /health",
+      "GET /api/test",
+      "POST /api/auth/login",
+      "GET /api/books",
+      "GET /api/students",
+      "GET /api/stats",
+      "GET /api/borrows",
+      "GET /api/recommendations"
+    ]
   });
 });
 
 /**
- * Global error handler
+ * Error Handler
  */
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err);
+  console.error('❌ Server Error:', err);
   
   res.status(err.status || 500).json({ 
     error: "Internal Server Error",
     message: err.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    timestamp: new Date().toISOString(),
+    ...(process.env.NODE_ENV === 'development' && { 
+      stack: err.stack,
+      details: err 
+    })
   });
 });
 
@@ -120,14 +139,16 @@ app.use((err, req, res, next) => {
  * START SERVER
  */
 const PORT = process.env.PORT || 8080;
+const HOST = '0.0.0.0';
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, HOST, () => {
   console.log('=================================');
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Server started successfully`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📡 Local: http://localhost:${PORT}`);
+  console.log(`📡 Listening on: http://${HOST}:${PORT}`);
+  console.log(`🔗 API Base: /api`);
   console.log('=================================');
 }).on('error', (err) => {
-  console.error('❌ Server failed to start:', err);
+  console.error('❌ Failed to start server:', err);
   process.exit(1);
 });
