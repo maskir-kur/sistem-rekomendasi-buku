@@ -11,38 +11,50 @@ import recommendationRoutes from "./routes/recommendations.js";
 const app = express();
 
 /**
- * ✅ MIDDLEWARE DALAM URUTAN YANG BENAR
+ * ✅ CORS HARUS PERTAMA SEBELUM SEMUA MIDDLEWARE
  */
+// Daftar origin yang diizinkan
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  "https://sistem-rekomendasi-buku-production-44ab.up.railway.app"
+];
 
-// 1️⃣ Parse JSON body HARUS PERTAMA
+// CORS middleware - SIMPLE dan PASTI WORK
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Jika origin ada di whitelist atau tidak ada origin (Postman/curl)
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
+/**
+ * Body Parser - SETELAH CORS
+ */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 2️⃣ CORS - DIPERBAIKI untuk menangani preflight dengan benar
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    const allowedOrigins = [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://sistem-rekomendasi-buku-production-44ab.up.railway.app"
-    ];
-    
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Tetap izinkan untuk testing
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}));
-
-// 3️⃣ Handle preflight globally
-app.options('*', cors());
+/**
+ * Logging middleware (opsional, untuk debugging)
+ */
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
 
 /**
  * ROOT ROUTE
@@ -50,6 +62,8 @@ app.options('*', cors());
 app.get("/", (req, res) => {
   res.json({ 
     message: "Backend API running 🚀",
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
     endpoints: {
       auth: "/api/auth/login",
       books: "/api/books",
@@ -62,7 +76,14 @@ app.get("/", (req, res) => {
 });
 
 /**
- * 4️⃣ API ROUTES
+ * Health check endpoint
+ */
+app.get("/health", (req, res) => {
+  res.json({ status: "OK", timestamp: new Date().toISOString() });
+});
+
+/**
+ * API ROUTES
  */
 app.use("/api/auth", authRoutes);
 app.use("/api/books", booksRoutes);
@@ -72,13 +93,13 @@ app.use("/api/borrows", borrowRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 
 /**
- * ERROR HANDLER untuk endpoint yang tidak ditemukan
+ * 404 Handler
  */
 app.use((req, res) => {
   res.status(404).json({ 
-    message: "Endpoint not found",
-    path: req.path,
-    method: req.method
+    error: "Not Found",
+    message: `Cannot ${req.method} ${req.path}`,
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -86,18 +107,27 @@ app.use((req, res) => {
  * Global error handler
  */
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ 
-    message: "Internal server error",
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  console.error('❌ Error:', err);
+  
+  res.status(err.status || 500).json({ 
+    error: "Internal Server Error",
+    message: err.message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
 /**
- * PORT
+ * START SERVER
  */
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('=================================');
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📡 Local: http://localhost:${PORT}`);
+  console.log('=================================');
+}).on('error', (err) => {
+  console.error('❌ Server failed to start:', err);
+  process.exit(1);
 });

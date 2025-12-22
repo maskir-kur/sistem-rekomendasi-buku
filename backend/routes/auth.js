@@ -6,16 +6,6 @@ import pool from "../db.js";
 
 const router = express.Router();
 
-/* =================================================
-   ✅ HANDLE PREFLIGHT DENGAN CARA AMAN
-   ================================================= */
-router.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-  next();
-});
-
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   const { identifier, password } = req.body;
