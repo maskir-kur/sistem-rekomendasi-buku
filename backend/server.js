@@ -20,7 +20,8 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000",
-  "https://sistem-rekomendasi-buku-production.up.railway.app"
+  "https://sistem-rekomendasi-buku-production.up.railway.app",
+  "https://sistem-rekomendasi-buku-mcc2.vercel.app"
 ];
 
 app.use(cors({
