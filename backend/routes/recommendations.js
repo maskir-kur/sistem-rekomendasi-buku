@@ -2,7 +2,7 @@
 // backend/routes/recommendations.js
 // ──────────────────────────────────────────────
 import express from "express";
-import { spawn } from "child_process";
+import axios from "axios";
 import auth from "../middleware/auth.js";
 import pool from "../db.js";
 
@@ -60,65 +60,54 @@ router.post("/books/details-by-ids", auth, async (req, res) => {
 });
 
 /* ╔═════════════════════════════════════════════════╗
-   ║ POST /api/recommendations/generate – Picu Rekomendasi ML ║
+   ║ POST /api/recommendations/generate – Picu ML ║
    ╚═════════════════════════════════════════════════╝ */
 router.post("/generate", auth, async (req, res) => {
     try {
-        const pythonScriptPath = '../ml_recommender/scripts/generate_recommendations.py';
-        const pythonInterpreterPath = 'D:\\sistem-rekomendasi-buku\\ml_recommender\\venv\\Scripts\\python.exe';
-
-        const pythonProcess = spawn(pythonInterpreterPath, [pythonScriptPath]);
-
-        let data = '';
-        let errorData = '';
-
-        pythonProcess.stdout.on('data', (chunk) => {
-            data += chunk.toString();
-        });
-
-        pythonProcess.stderr.on('data', (err) => {
-            errorData += err.toString();
-            console.error(`Python Stderr: ${err.toString()}`);
-        });
-
-        pythonProcess.on('close', async (code) => {
-            if (code === 0) {
-                try {
-                    const cleanedData = data.trim();
-                    const recommendationsResult = JSON.parse(cleanedData);
-
-                    const { recommendation_rules } = recommendationsResult;
-
-                    const conn = await pool.getConnection();
-                    try {
-                        await conn.beginTransaction();
-
-                        await conn.query(
-                            "INSERT INTO recommendation_batches (rules_data) VALUES (?)",
-                            [JSON.stringify(recommendation_rules)]
-                        );
-
-                        await conn.commit();
-                        res.json({ message: "Rekomendasi berhasil dibuat & disimpan.", data: recommendationsResult });
-                    } catch (dbError) {
-                        await conn.rollback();
-                        console.error("Error saving recommendations to DB:", dbError);
-                        res.status(500).json({ message: "Gagal menyimpan hasil rekomendasi ke database." });
-                    } finally {
-                        conn.release();
-                    }
-                } catch (parseError) {
-                    console.error("Failed to parse Python output:", parseError);
-                    res.status(500).json({ message: "Gagal memproses output rekomendasi dari Python (bukan JSON valid)." });
-                }
-            } else {
-                console.error(`Python script exited with code ${code}. Stderr: ${errorData}`);
-                res.status(500).json({ message: `Gagal menjalankan skrip rekomendasi Python. Code: ${code}. Error: ${errorData}` });
+        // 1. Panggil FastAPI
+        const fastApiResponse = await axios.post(
+            "http://127.0.0.1:8000/recommendations/apriori",
+            {
+                min_support: req.body.min_support ?? 0.4,
+                min_confidence: req.body.min_confidence ?? 0.5
+            },
+            {
+                timeout: 30000 // 30 detik
             }
-        });
+        );
+
+        const recommendationsResult = fastApiResponse.data;
+
+        // 2. Simpan ke database (seperti sebelumnya)
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            await conn.query(
+                "INSERT INTO recommendation_batches (rules_data) VALUES (?)",
+                [JSON.stringify(recommendationsResult.rules)]
+            );
+
+            await conn.commit();
+            res.json({
+                message: "Rekomendasi berhasil dibuat & disimpan",
+                data: recommendationsResult
+            });
+        } catch (dbError) {
+            await conn.rollback();
+            console.error(dbError);
+            res.status(500).json({ message: "Gagal menyimpan rekomendasi" });
+        } finally {
+            conn.release();
+        }
+
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: "Server error saat memicu rekomendasi." });
+        console.error("Error calling FastAPI:", error.message);
+
+        res.status(500).json({
+            message: "Gagal memanggil layanan rekomendasi ML",
+            error: error.message
+        });
     }
 });
 
