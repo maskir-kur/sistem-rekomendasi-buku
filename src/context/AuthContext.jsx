@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (identifier, password) => {
     try {
       // Panggil satu endpoint login di backend
-      const res = await api.post("/login", { identifier, password });
+      const res = await api.post("/auth/login", { identifier, password });
 
       // Atur header otorisasi untuk permintaan API berikutnya
       setAuth(res.data.token);
