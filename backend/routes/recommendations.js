@@ -66,7 +66,7 @@ router.post("/generate", auth, async (req, res) => {
     try {
         // 1. Panggil FastAPI
         const fastApiResponse = await axios.post(
-            "http://127.0.0.1:8000/recommendations/apriori",
+            `${process.env.ML_API_URL}/recommendations/apriori`,
             {
                 min_support: req.body.min_support ?? 0.4,
                 min_confidence: req.body.min_confidence ?? 0.5
