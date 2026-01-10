@@ -2,17 +2,32 @@ import pandas as pd
 import mysql.connector
 import os
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 from mlxtend.frequent_patterns import apriori, association_rules
 
 load_dotenv()
 
+# =======================
+# DATABASE CONFIG (NEW)
+# =======================
+database_url = os.getenv("DATABASE_URL")
+
+if not database_url:
+    raise RuntimeError("DATABASE_URL is missing")
+
+url = urlparse(database_url)
+
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "database": os.getenv("DB_NAME")
+    "host": url.hostname,
+    "user": url.username,
+    "password": url.password,
+    "database": url.path.lstrip("/"),
+    "port": url.port or 3306,
 }
 
+# =======================
+# FETCH DATA
+# =======================
 def fetch_data():
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
@@ -27,6 +42,9 @@ def fetch_data():
     conn.close()
     return pd.DataFrame(data)
 
+# =======================
+# APRIORI
+# =======================
 def generate_recommendations_apriori(
     min_support=0.4,
     min_confidence=0.5
