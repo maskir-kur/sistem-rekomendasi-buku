@@ -17,29 +17,18 @@ const app = express();
  * =====================================
  */
 const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:3000",
-  "https://sistem-rekomendasi-buku-production.up.railway.app",
-  "https://backend1-1i44xh51.b4a.run",
-  "https://sistem-rekomendasi-buku.vercel.app"
+
 ];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Izinkan request tanpa Origin (Postman, curl)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error("CORS not allowed"));
-  },
+  origin: true,            
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
 }));
+
+app.options("*", cors());
+
 
 // WAJIB untuk preflight request
 app.options("*", cors());
