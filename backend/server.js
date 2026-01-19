@@ -21,6 +21,7 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:3000",
   "https://sistem-rekomendasi-buku-production.up.railway.app",
+  "https://backend1-1i44xh51.b4a.run",
   "https://sistem-rekomendasi-buku.vercel.app"
 ];
 
