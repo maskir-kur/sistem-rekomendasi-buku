@@ -16,18 +16,29 @@ const app = express();
  * ✅ CORS CONFIG (WAJIB PALING ATAS)
  * =====================================
  */
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "https://sistem-rekomendasi-buku.vercel.app");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  "https://sistem-rekomendasi-buku-production.up.railway.app",
+  "https://sistem-rekomendasi-buku.vercel.app"
+];
 
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+app.use(cors({
+  origin: (origin, callback) => {
+    // Izinkan request tanpa Origin (Postman, curl)
+    if (!origin) return callback(null, true);
 
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("CORS not allowed"));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
 app.use(cors());
 
 /**
