@@ -1,0 +1,54 @@
+services:
+  # --- 1. DATABASE (MariaDB Resmi di-Capping RAM ketat) ---
+  database:
+    image: mariadb:lts
+    container_name: my_project_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password_rahasia_db  # <-- Ganti bebas
+      MYSQL_DATABASE: nama_database_kamu         # <-- Ganti bebas
+    volumes:
+      - ./db_data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3306:3306"
+    deploy:
+      resources:
+        limits:
+          memory: 140M  # Batasi ketat RAM DB
+        reservations:
+          memory: 70M
+
+  # --- 2. PYTHON FASTAPI (ML RECOMMENDER) ---
+  ml_recommender:
+    image: ghcr.io/wahyugan1/sistem-rekomendasi-buku-apriori/backend:latest
+    container_name: my_project_ml
+    restart: always
+    ports:
+      - "127.0.0.1:8001:8001"
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+        reservations:
+          memory: 150M
+
+  # --- 3. BACKEND (NODE.JS) ---
+  backend:
+    image: ghcr.io/wahyugan1/sistem-rekomendasi-buku-apriori/backend:latest
+    container_name: my_project_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=database
+      - ML_API_URL=http://ml_recommender:8001
+    depends_on:
+      - database
+      - ml_recommender
+    deploy:
+      resources:
+        limits:
+          memory: 120M
+        reservations:
+          memory: 60M
