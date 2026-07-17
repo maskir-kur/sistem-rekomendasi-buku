@@ -1,4 +1,4 @@
-# 📚 e-Perpus
+# 📚 E-Perpus
 
 ### Sistem Rekomendasi Buku Perpustakaan Berbasis Algoritma Apriori
 
