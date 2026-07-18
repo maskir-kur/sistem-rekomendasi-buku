@@ -57,19 +57,27 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # --- Solusi Timeout: Perpanjang napas koneksi SSH ---
+          command_timeout: 20m
+          timeout: 30m
           script: |
             cd /home/ubuntu
             
-            # Login Docker di VPS ke GHCR agar bisa pull image private
+            # 1. Login Docker di VPS ke GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Pull image yang sudah matang dari GitHub (Sangat cepat & hemat RAM)
-            docker compose pull backend ml_recommender
+            # 2. Matikan container lama untuk mengosongkan RAM total di VPS sebelum ekstraksi dimulai
+            docker compose down
             
-            # Jalankan ulang container dengan image baru tanpa downtime berat
+            # 3. Bersihkan sisa cache gantung agar ruang penyimpanan lega
+            docker system prune -f
+            
+            # 4. Jalankan Pull image secara bergantian (sequential) agar RAM tidak tercekik
+            docker compose pull database
+            docker compose pull backend
+            docker compose pull ml_recommender
+            
+            # 5. Nyalakan kembali semua layanan secara berurutan
             docker compose up -d database
             docker compose up -d ml_recommender
             docker compose up -d backend
-            
-            # Bersihkan image lama yang tidak terpakai agar disk VPS tidak penuh
-            docker image prune -f
