@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main # Jalankan otomatisasi setiap push ke branch main
+    paths:
+      - 'backend/**'
+      - 'ml_recommender/**'
+      - 'docker-compose.yml' # Ikut dipantau jika Anda mengubah port/env kontainer di VPS
 
 env:
   REGISTRY: ghcr.io
