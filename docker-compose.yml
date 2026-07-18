@@ -20,7 +20,7 @@ services:
 
   # --- 2. PYTHON FASTAPI (ML RECOMMENDER) ---
   ml_recommender:
-    image: ghcr.io/wahyugan1/sistem-rekomendasi-buku-apriori/backend:latest
+    image: ghcr.io/wahyugan1/sistem-rekomendasi-buku-apriori/ml_recommender:latest
     container_name: my_project_ml
     restart: always
     ports:
