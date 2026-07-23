@@ -21,25 +21,29 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:3000",
   "https://sistem-rekomendasi-buku-production.up.railway.app",
-  "https://sistem-rekomendasi-buku.vercel.app"
+  "https://sistem-rekomendasi-buku.vercel.app",
+  "https://www.sistem-rekomendasi-buku.my.id",
+  "https://sistem-rekomendasi-buku.my.id"
 ];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Izinkan request tanpa Origin (Postman, curl)
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Izinkan request tanpa Origin (Postman, curl)
+      if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-    return callback(new Error("CORS not allowed"));
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
-}));
-app.use(cors());
+      // Mencetak origin yang ditolak
+      return callback(new Error(`CORS not allowed untuk origin: ${origin}`));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  })
+);
 
 /**
  * =====================================
