@@ -1,20 +1,27 @@
 services:
-  # --- 1. DATABASE (MariaDB Resmi di-Capping RAM ketat) ---
+  # --- 1. DATABASE (MariaDB Resmi) ---
   database:
     image: mariadb:lts
     container_name: my_project_db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: password_rahasia_db  # <-- Ganti bebas
-      MYSQL_DATABASE: nama_database_kamu         # <-- Ganti bebas
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: sistem_rekomendasi_buku
     volumes:
       - ./db_data:/var/lib/mysql
     ports:
-      - "127.0.0.1:3306:3306"
+      - "127.0.0.1:3307:3306"
+    healthcheck:
+      # Pengecekan koneksi MariaDB tanpa password
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     deploy:
       resources:
         limits:
-          memory: 140M  # Batasi ketat RAM DB
+          memory: 140M
         reservations:
           memory: 70M
 
@@ -24,7 +31,16 @@ services:
     container_name: my_project_ml
     restart: always
     ports:
-      - "127.0.0.1:8001:8001"
+      - "127.0.0.1:8001:8000"
+    env_file:
+      - /home/ubuntu/ml_recommender/.env
+    healthcheck:
+      # Pengecekan endpoint internal FastAPI pada port 8000
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/docs\")' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
@@ -38,14 +54,25 @@ services:
     container_name: my_project_backend
     restart: always
     ports:
-      - "3000:3000"
+      - "3000:8080"
+    env_file:
+      - /home/ubuntu/backend/.env
     environment:
       - NODE_ENV=production
       - DB_HOST=database
-      - ML_API_URL=http://ml_recommender:8001
+      - ML_API_URL=http://ml_recommender:8000
     depends_on:
-      - database
-      - ml_recommender
+      database:
+        condition: service_healthy   # Backend baru akan start jika DB sudah siap
+      ml_recommender:
+        condition: service_healthy   # Backend baru akan start jika FastAPI sudah siap
+    healthcheck:
+      # Pengecekan endpoint /health pada port internal Node.js (8080)
+      test: ["CMD-SHELL", "node -e 'require(\"http\").get(\"http://localhost:8080/health\", (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
