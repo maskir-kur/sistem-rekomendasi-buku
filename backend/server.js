@@ -12,9 +12,9 @@ import recommendationRoutes from "./routes/recommendations.js";
 const app = express();
 
 /**
- * =====================================
+ * ========================================
  * ✅ CORS CONFIG (WAJIB PALING ATAS)
- * =====================================
+ * ========================================
  */
 const allowedOrigins = [
   "http://localhost:5173",
