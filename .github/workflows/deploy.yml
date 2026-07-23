@@ -49,19 +49,33 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_ML }}:latest
 
-  # --- JOB 2: Deploy Instan ke VPS ---
+# --- JOB 2: Deploy Instan ke VPS ---
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-push
 
     steps:
+      # Step 1: Ambil file dari repository GitHub ke Runner
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Kirim file docker-compose.yml terbaru ke VPS via SCP
+      - name: Copy docker-compose.yml to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.yml"
+          target: "/home/ubuntu/"
+
+      # Step 3: Jalankan perintah Remote SSH seperti biasa
       - name: Execute Remote SSH Commands
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          # --- Solusi Timeout: Perpanjang napas koneksi SSH ---
           command_timeout: 20m
           timeout: 30m
           script: |
@@ -70,18 +84,16 @@ jobs:
             # 1. Login Docker di VPS ke GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # 2. Matikan container lama untuk mengosongkan RAM total di VPS sebelum ekstraksi dimulai
+            # 2. Matikan container lama
             docker compose down
             
-            # 3. Bersihkan sisa cache gantung agar ruang penyimpanan lega
+            # 3. Bersihkan cache
             docker system prune -f
             
-            # 4. Jalankan Pull image secara bergantian (sequential) agar RAM tidak tercekik
+            # 4. Pull image terbaru
             docker compose pull database
             docker compose pull backend
             docker compose pull ml_recommender
             
-            # 5. Nyalakan kembali semua layanan secara berurutan
-            docker compose up -d database
-            docker compose up -d ml_recommender
-            docker compose up -d backend
+            # 5. Nyalakan layanan (cukup jalankan ini sekali, Docker akan memproses dependency & healthcheck)
+            docker compose up -d
