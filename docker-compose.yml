@@ -1,5 +1,5 @@
 services:
-  # --- 1. DATABASE (MariaDB Resmi) ---
+  # --- 1. DATABASE (MariaDB Resmi) ----
   database:
     image: mariadb:lts
     container_name: my_project_db
