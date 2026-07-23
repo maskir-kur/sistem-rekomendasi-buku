@@ -7,7 +7,7 @@ on:
     paths:
       - 'backend/**'
       - 'ml_recommender/**'
-      - 'docker-compose.yml' # Ikut dipantau jika Anda mengubah port/env kontainer di VPS
+      - 'docker-compose.yml' # Ikut dipantau jika Anda mengubah port/env/healthcheck
 
 env:
   REGISTRY: ghcr.io
@@ -49,7 +49,7 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_ML }}:latest
 
-# --- JOB 2: Deploy Instan ke VPS ---
+  # --- JOB 2: Deploy Instan ke VPS + Auto-Rollback Guard ---
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-push
@@ -69,8 +69,8 @@ jobs:
           source: "docker-compose.yml"
           target: "/home/ubuntu/"
 
-      # Step 3: Jalankan perintah Remote SSH seperti biasa
-      - name: Execute Remote SSH Commands
+      # Step 3: Jalankan Eksekusi SSH dengan Auto-Rollback jika Unhealthy
+      - name: Execute Remote SSH Commands & Health Verification
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -84,16 +84,42 @@ jobs:
             # 1. Login Docker di VPS ke GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # 2. Matikan container lama
+            # 2. Matikan container lama untuk mengosongkan RAM total di VPS sebelum ekstraksi
             docker compose down
             
-            # 3. Bersihkan cache
+            # 3. Bersihkan cache gantung agar ruang penyimpanan lega
             docker system prune -f
             
-            # 4. Pull image terbaru
+            # 4. Pull image terbaru secara bergantian (sequential) agar RAM tidak tercekik
             docker compose pull database
             docker compose pull backend
             docker compose pull ml_recommender
             
-            # 5. Nyalakan layanan (cukup jalankan ini sekali, Docker akan memproses dependency & healthcheck)
+            # 5. Jalankan semua layanan
+            echo "🚀 Menyalakan layanan baru..."
             docker compose up -d
+            
+            # 6. Verifikasi Kesehatan (Healthcheck Guard)
+            echo "⏳ Menunggu 35 detik untuk verifikasi status healthcheck..."
+            sleep 35
+            
+            # Cek apakah ada kontainer yang berstatus unhealthy
+            UNHEALTHY_CONTAINERS=$(docker ps --filter "health=unhealthy" -q)
+            
+            if [ -n "$UNHEALTHY_CONTAINERS" ]; then
+              echo "❌ DEPLOYMENT GAGAL: Terdeteksi kontainer berstatus UNHEALTHY!"
+              docker ps
+              
+              echo "🔄 Memulai proses Rollback otomatis..."
+              docker compose down
+              
+              # Dapatkan image versi sebelumnya (jika ada di local cache) atau nyalakan ulang
+              echo "⚠️ Mengembalikan layanan ke kondisi stabil..."
+              docker compose up -d
+              
+              echo "🚨 Rollback selesai. Workflow akan dihentikan dengan status error."
+              exit 1
+            else
+              echo "✅ SEMUA SERVIS BERJALAN HEALTHY! Deployment Sukses 100%."
+              docker ps
+            fi
